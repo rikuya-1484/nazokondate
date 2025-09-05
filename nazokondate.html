@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>謎献立チャレンジ – MVP</title>
+  <meta name="description" content="世界の料理からランダムに“食べられる”謎献立を生成してシェアするミニサイト。#謎献立チャレンジ" />
+  <meta property="og:title" content="謎献立チャレンジ – 今日の謎献立は？" />
+  <meta property="og:description" content="世界・日本ほかカテゴリからランダム献立を生成！#謎献立チャレンジ" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="" />
+  <meta name="theme-color" content="#ffffff" />
+  <style>
+    :root{--bg:#f7f7fb;--fg:#222;--muted:#666;--card:#fff;--primary:#3b82f6;--ring:rgba(59,130,246,.25)}
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans JP",sans-serif;color:var(--fg);background:linear-gradient(180deg,#fff, var(--bg));}
+    .wrap{max-width:960px;margin:0 auto;padding:24px 16px 64px}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+    h1{font-size:clamp(20px,3.2vw,32px);margin:0;letter-spacing:.02em}
+    .sub{color:var(--muted);font-size:14px}
+    .card{background:var(--card);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.06);padding:16px}
+    .controls{display:grid;gap:12px;grid-template-columns:1fr 1fr;align-items:end}
+    label{font-size:14px;color:var(--muted)}
+    select,button,input[type="checkbox"]{accent-color:var(--primary)}
+    select,button{width:100%;padding:12px 14px;border:1px solid #e5e7eb;border-radius:12px;background:#fff}
+    button{background:var(--primary);color:#fff;border:none;font-weight:600;cursor:pointer}
+    button:hover{filter:brightness(1.02)}
+    button:active{transform:translateY(1px)}
+    button:focus,select:focus{outline:2px solid var(--ring)}
+    .inline{display:flex;gap:10px;align-items:center}
+    .result{margin-top:20px;display:grid;gap:14px}
+    .dish{display:grid;gap:6px;padding:12px 14px;border:1px solid #eef0f5;border-radius:12px;background:#fff}
+    .dish h3{margin:0;font-size:16px}
+    .pill{display:inline-block;font-size:12px;color:#fff;background:#111;padding:2px 8px;border-radius:999px;margin-right:6px}
+    .links{display:flex;gap:10px;flex-wrap:wrap}
+    .links a{font-size:12px;color:var(--primary);text-decoration:none;border:1px solid #dbe6ff;padding:6px 10px;border-radius:999px;background:#f6faff}
+    .share{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    .note{font-size:12px;color:var(--muted)}
+    footer{margin-top:40px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+    .row{display:grid;grid-template-columns:1fr;gap:16px}
+    @media(min-width:720px){
+      .row{grid-template-columns:1fr 1fr}
+      .controls{grid-template-columns:1fr 1fr auto}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>謎献立チャレンジ</h1>
+        <div class="sub">カテゴリを選んでランダム献立を生成 → <strong>#謎献立チャレンジ</strong> でシェア！</div>
+      </div>
+    </header>
+
+    <section class="card">
+      <div class="controls">
+        <div>
+          <label for="region">カテゴリ</label>
+          <select id="region">
+            <option value="ALL">世界中（ALL）</option>
+            <option value="JP">日本</option>
+            <option value="IN">インド</option>
+            <option value="IT">イタリア</option>
+            <option value="CN">中国</option>
+            <option value="KR">韓国</option>
+            <option value="TH">タイ</option>
+            <option value="US">アメリカ</option>
+            <option value="FR">フランス</option>
+            <option value="MX">メキシコ</option>
+            <option value="ME">中東</option>
+          </select>
+        </div>
+        <div class="inline">
+          <input type="checkbox" id="once" />
+          <label for="once">日替わり1回だけにする</label>
+        </div>
+        <div>
+          <button id="roll">謎献立を生成</button>
+        </div>
+      </div>
+
+      <div class="result" id="result" aria-live="polite"></div>
+
+      <div class="share">
+        <button id="shareX" title="X(Twitter)でシェア">Xでシェア</button>
+        <button id="copyBtn" title="献立をコピー">献立をコピー</button>
+        <span class="note">* レシピはリンク先（Google/YouTube検索）で探せます</span>
+      </div>
+    </section>
+
+    <footer>
+      <div>© <span id="year"></span> Nazo-Kondates</div>
+      <div>
+        <a href="#" onclick="alert('最小MVPのため準備中です\nプライバシーポリシー/免責は収益化前に必ず用意してください'); return false;">ポリシー</a>
+      </div>
+    </footer>
+  </div>
+
+<script>
+// ---- 最小データセット（MVP用）。後でJSON/APIに差し替え可能な構造 ----
+// カテゴリごとに course: MAIN/SIDE/SOUP/DESSERT の配列を持つ
+const DB = {
+  JP: {
+    MAIN:["焼き魚（サバ）","照り焼きチキン","豚の生姜焼き","親子丼","麻婆豆腐（和風）","鯖味噌煮","天丼","鶏から揚げ","鮭のホイル焼き"],
+    SIDE:["ほうれん草のおひたし","きんぴらごぼう","冷ややっこ","だし巻き卵","ポテトサラダ","浅漬け","ひじきの煮物"],
+    SOUP:["味噌汁（わかめ・豆腐）","豚汁","なめこ汁","けんちん汁"],
+    DESSERT:["みたらし団子","どら焼き","わらび餅","抹茶プリン"]
+  },
+  IN: {
+    MAIN:["バターチキンカレー","サグパニール","チキンティッカ","ダル（豆カレー）","ビリヤニ"],
+    SIDE:["チャパティ","ナン","サモサ","アチャール"],
+    SOUP:["ラッサム","マサラダールスープ"],
+    DESSERT:["キール（ミルクライス）","グラブジャムン"]
+  },
+  IT: {
+    MAIN:["ペンネアラビアータ","カルボナーラ","ボロネーゼ","マルゲリータピザ","リゾット（きのこ）"],
+    SIDE:["カプレーゼ","ブルスケッタ","グリル野菜"],
+    SOUP:["ミネストローネ"],
+    DESSERT:["ティラミス","パンナコッタ"]
+  },
+  CN: {
+    MAIN:["青椒肉絲","回鍋肉","麻婆豆腐","黒酢酢豚","油淋鶏"],
+    SIDE:["ザーサイ和え","空心菜炒め","春巻き"],
+    SOUP:["酸辣湯","コーンスープ（中華）"],
+    DESSERT:["ごま団子","マンゴープリン"]
+  },
+  KR: {
+    MAIN:["プルコギ","ビビンバ","サムギョプサル","スンドゥブチゲ"],
+    SIDE:["キムチ","ナムル盛り","チヂミ"],
+    SOUP:["わかめスープ","ユッケジャン"],
+    DESSERT:["ホットク"]
+  },
+  TH: {
+    MAIN:["ガパオライス","パッタイ","グリーンカレー","カオマンガイ"],
+    SIDE:["ソムタム","春雨サラダ（ヤムウンセン）"],
+    SOUP:["トムヤムクン","トムカーガイ"],
+    DESSERT:["マンゴー＆もち米"]
+  },
+  US: {
+    MAIN:["ハンバーガー","BBQプルドポーク","マカロニ＆チーズ","フライドチキン"],
+    SIDE:["コールスロー","フライドポテト","マッシュポテト"],
+    SOUP:["クラムチャウダー","チキンスープ"],
+    DESSERT:["ブラウニー","チーズケーキ"]
+  },
+  FR: {
+    MAIN:["鶏のフリカッセ","ブッフ・ブルギニヨン","キッシュロレーヌ"],
+    SIDE:["ニース風サラダ","ラタトゥイユ"],
+    SOUP:["オニオングラタンスープ","ポタージュ"],
+    DESSERT:["クレームブリュレ","タルトタタン"]
+  },
+  MX: {
+    MAIN:["タコス","エンチラーダ","ケサディーヤ","チリコンカン"],
+    SIDE:["ワカモレ","ピコ・デ・ガヨ","メキシカンライス"],
+    SOUP:["トルティーヤスープ"],
+    DESSERT:["チュロス","トレスレチェスケーキ"]
+  },
+  ME: {
+    MAIN:["ケバブ（シシ）","シャクシュカ","ファラフェル","フムス＆ピタ","カフタ"],
+    SIDE:["タブーレ","ババガヌーシュ","ピクルス盛り"],
+    SOUP:["レンズ豆のスープ"],
+    DESSERT:["バクラヴァ","デーツ"]
+  }
+};
+
+const COURSE_ORDER = [
+  {key:'MAIN', label:'主菜'},
+  {key:'SIDE', label:'副菜'},
+  {key:'SOUP', label:'汁物 / スープ'},
+  {key:'DESSERT', label:'デザート'}
+];
+
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+
+function buildPool(region){
+  if(region==='ALL'){
+    // すべての地域の同じコースを結合
+    const pool = {MAIN:[],SIDE:[],SOUP:[],DESSERT:[]};
+    Object.values(DB).forEach(cat=>{
+      Object.keys(pool).forEach(k=>{ if(cat[k]) pool[k].push(...cat[k]); });
+    });
+    return pool;
+  }
+  return DB[region] || DB.JP;
+}
+
+function searchLinks(name){
+  const q1 = encodeURIComponent(name + ' レシピ');
+  const q2 = encodeURIComponent(name + ' recipe');
+  return [
+    {label:'Google（日本語）', href:`https://www.google.com/search?q=${q1}`},
+    {label:'Google（英語）', href:`https://www.google.com/search?q=${q2}`},
+    {label:'YouTube', href:`https://www.youtube.com/results?search_query=${q1}`}
+  ];
+}
+
+function renderKondates(){
+  const region = document.getElementById('region').value;
+  const pool = buildPool(region);
+  const result = document.getElementById('result');
+  result.innerHTML = '';
+
+  let lines = [];
+  COURSE_ORDER.forEach(c=>{
+    const list = (pool[c.key]||[]);
+    if(!list.length) return; // コースがない地域はスキップ
+    const name = pick(list);
+    lines.push(`${c.label}：${name}`);
+
+    const div = document.createElement('div');
+    div.className = 'dish';
+    const h3 = document.createElement('h3');
+    h3.innerHTML = `<span class="pill">${c.label}</span> ${name}`;
+    div.appendChild(h3);
+
+    const links = document.createElement('div');
+    links.className = 'links';
+    searchLinks(name).forEach(l=>{
+      const a = document.createElement('a');
+      a.href=l.href; a.target='_blank'; a.rel='noopener'; a.textContent=l.label;
+      links.appendChild(a);
+    });
+    div.appendChild(links);
+    result.appendChild(div);
+  });
+
+  // 共有テキスト保存
+  const shareText = `今日の謎献立\n${lines.join('\n')}\n`;
+  window._lastKondatesText = shareText;
+}
+
+// 日替わり1回制限
+function canRollToday(){
+  const once = document.getElementById('once').checked;
+  if(!once) return true;
+  const key = 'nazo_roll_date';
+  const today = new Date().toISOString().slice(0,10);
+  const last = localStorage.getItem(key);
+  if(last === today) return false;
+  localStorage.setItem(key, today);
+  return true;
+}
+
+function shareToX(){
+  const text = (window._lastKondatesText||'今日の謎献立').trim();
+  const url = location.href;
+  const t = encodeURIComponent(text + '\n#謎献立チャレンジ');
+  const u = encodeURIComponent(url);
+  const link = `https://twitter.com/intent/tweet?text=${t}&url=${u}`;
+  window.open(link, '_blank', 'noopener');
+}
+
+function copyKondates(){
+  const text = (window._lastKondatesText||'');
+  if(!text){ alert('先に「謎献立を生成」を押してください'); return; }
+  navigator.clipboard.writeText(text + '\n#謎献立チャレンジ').then(()=>{
+    alert('献立をコピーしました！');
+  }).catch(()=>{
+    prompt('コピーできない場合は手動で選択してコピーしてください:\n', text);
+  });
+}
+
+// 初期化
+const rollBtn = document.getElementById('roll');
+rollBtn.addEventListener('click', ()=>{
+  if(!canRollToday()){
+    alert('今日は既に1回引いています。また明日チャレンジ！');
+    return;
+  }
+  renderKondates();
+});
+
+// シェア・コピー
+document.getElementById('shareX').addEventListener('click', shareToX);
+document.getElementById('copyBtn').addEventListener('click', copyKondates);
+
+// 年号
+document.getElementById('year').textContent = new Date().getFullYear();
+
+// 初期表示（自動では生成しない = シェア誤爆防止）
+</script>
+</body>
+</html>
